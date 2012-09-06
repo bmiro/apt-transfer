@@ -1,16 +1,34 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
 
+##########################################################################
+#   This program is free software: you can redistribute it and/or modify #
+# it under the terms of the GNU General Public License as published by   #
+# the Free Software Foundation, either version 3 of the License, or      #
+# (at your option) any later version.                                    #
+#                                                                        #
+#   This program is distributed in the hope that it will be useful,      #
+# but WITHOUT ANY WARRANTY; without even the implied warranty of         #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          #
+# GNU General Public License for more details.                           #
+#                                                                        #
+# You should have received a copy of the GNU General Public License      #
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.  #
+##########################################################################
+
+
 import sys
 import shlex
 import subprocess
 import urllib.request
 
-usage_text = "apt-transfer-client server_url \n \
-\t i.e.: apt-transfer-client 192.168.254.1/apt-transfer.\n"
-
 PACKAGE_LIST_NAME = "package.list"
 SOURCES_LIST_BACKUP_NAME = "sources.list.apt-transfer.bak"
+SOURCES_LIST_PATH = "/etc/apt"
+
+def print_help():
+    print("apt-transfer-client server_url \n \
+\t i.e.: apt-transfer-client 192.168.254.1/apt-transfer.")
 
 def override_sources_list(server_url):
     pass 

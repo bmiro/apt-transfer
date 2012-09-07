@@ -162,12 +162,9 @@ def start():
     dpkg_l_cmd = shlex.split("dpkg -l")
     dpkg_l = subprocess.Popen(dpkg_l_cmd, stdout=subprocess.PIPE)
 
-    #package_list = dpkg_l.read()
+    package_list = dpkg_l.stdout.read()
 
-    #print(package_list)    
-
-    print(dpkg_l.stdout.readline())
-
+    print package_list
 
 def stop():
     pass

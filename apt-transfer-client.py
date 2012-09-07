@@ -16,36 +16,64 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.  #
 ##########################################################################
 
+## IMPORTANT TODO: catch kill singals and recover sources before exiting
 
-import sys
-import shlex
-import subprocess
+import sys.argv
+import shlex.split
+import shutil.copy
+import datetime.date
 import urllib.request
+import subprocess.Popen
 
-PACKAGE_LIST_NAME = "package.list"
-SOURCES_LIST_BACKUP_NAME = "sources.list.apt-transfer.bak"
-SOURCES_LIST_PATH = "/etc/apt"
+# Names of the files to donwload from the apt-transfer-server
+PACKAGE_LIST_NAME_URL = "package.list"
+SOURCES_LIST_NAME_URL = "sources.list"
+
+# Paths of the local sources.list files
+SOURCES_LIST_FILE = "/etc/apt/sources.list"
+SOURCES_LIST_BACKUP_FILE = "/etc/apt/sources.list.bak"
+
 
 def print_help():
     print("apt-transfer-client server_url \n \
 \t i.e.: apt-transfer-client 192.168.254.1/apt-transfer.")
 
+
 def override_sources_list(server_url):
-    pass 
+    # Sources list backup
+    SOURCES_LIST_BACKUP_FILE += str(datetime.date.today())
+    print("Saving a backup of sources.list to " + SOURCES_LIST_BACKUP_FILE)
+    shutil.copy(SOURCES_LIST_FILE, SOURCES_LIST_BACKUP_FILE)
+    
+    # Retriving the new sources.list
+    server_url += "/" + SOURCES_LIST_NAME
+    print("Retriving sources list file from the server " + server_url + "...")
+    new_sourceslist_url = urllib.request.urlopen(server_url)
+    new_sourceslist = new_sourceslist_url.read()
+
+    # Overwritting the new sources list to the file
+    sourceslist_file = open(SOURCES_LIST_FILE, "w")
+    sourceslist_file.write(new_sourceslist)
+    sourceslist_file.close()
+
+    apt_get_update_args = shlex.split("apt-get update")
+    apt_get_update = subprocess.Popen(apt_get_update_args)
+    apt_get_update.wait()
 
 
 def recover_sources_list():
-    pass
+    shutil.copy(SOURCES_LIST_BACKUP_FILE, SOURCES_LIST_FILE)
 
 
 def parse_package_list(package_list):
     packages = package_list.decode('utf-8') 
+    packages.replace("\n", " ")
     return packages
 
 
 def get_package_list(server_url):
     server_url += "/" + PACKAGE_LIST_NAME
-    print("\nRetriving package list from " + server_url + "...")
+    print("Retriving package list from " + server_url + "...")
     package_list_url = urllib.request.urlopen(server_url)
     package_list = package_list_url.read()
     return package_list

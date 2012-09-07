@@ -2,6 +2,8 @@
 #-*- coding: utf-8 -*-
 
 import sys
+import shlex
+import subprocess
 import os.path
 
 ##########################################################################
@@ -77,9 +79,12 @@ def arg_parsing(arg_v):
         return {"error" : "I don't understand the command " + command}
 
     arg = {}
-    if command == "mirror":
-    # command        URL                 VERSION SECTIONS               PATH
+    arg["command"] = command
+
+    # Mirror command has some special handling:
+    # command        URL                 VERSION SECTIONS    (optional) PATH
     # mirror http://ftp.debian.org/debian/ sid main contrib --dest-path /tmp
+    if command == "mirror":
 
         #COMMAND
         arg["command"] = "mirror"
@@ -114,7 +119,7 @@ def arg_parsing(arg_v):
         if not sections:
             return {"error" : "I don't detect any software section (ie main)"}
 
-        if arg_v[i] != "--dest-path" and not arg_v[i] in SOURCES_SECTIONS:
+        if arg_v[i-1] != "--dest-path" and not arg_v[i-1] in SOURCES_SECTIONS:
             return {"error" : "I don't understand the section " + arg_v[i]}
 
         arg["sections"] = sections
@@ -132,17 +137,6 @@ def arg_parsing(arg_v):
         
             arg["path"] = dest_path
 
-    elif command == "initialize":
-        pass
-    elif command == "update":
-        pass
-    elif command == "start":
-        pass
-    elif command == "stop":
-        pass
-    elif command == "clean":
-        pass    
-
     return arg
 
 
@@ -154,12 +148,25 @@ def mirror(url, version, sections, path):
     pass
 
 
+# Maybe this can be replaced by packages dependeces once a deb
+# of this program is generated.
+def install_needed_dependeces():
+    pass
+
 def initialize():
     pass
 
 
 def start():
-    pass
+    #List system packages
+    dpkg_l_cmd = shlex.split("dpkg -l")
+    dpkg_l = subprocess.Popen(dpkg_l_cmd, stdout=subprocess.PIPE)
+
+    #package_list = dpkg_l.read()
+
+    #print(package_list)    
+
+    print(dpkg_l.stdout.readline())
 
 
 def stop():
@@ -179,10 +186,8 @@ if __name__=='__main__':
             print_help()
         else:    
             print(arg["error"])
+    
         exit()
-
-    print("Nice")
-    print(arg)
 
     if arg["command"] == "mirror":
         if "path" in arg:

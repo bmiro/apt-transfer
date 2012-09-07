@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
 
-from sys import argv
+import sys
+import os.path
 
 ##########################################################################
 #   This program is free software: you can redistribute it and/or modify #
@@ -37,9 +38,7 @@ SOURCES_SECTIONS=["main", "contrib", "non-free",          # Debian
 
 COMMAND_LIST = ["mirror", "initialize", "update", "start", "stop", "clean"]
 
-# apt-transfer-server mirror http://ftp.debian.org/debian/ \
-#                            testing main contrib non-free \
-#                            --dest-path /var/www/debian-mirror
+DEFAULT_MIRROR_PATH="/var/www/apt-mirror"
 
 
 def print_help():
@@ -69,54 +68,89 @@ at the source with\n\t\t\tthe same sintax as sources.list to the given path.")
 """
 def arg_parsing(arg_v):
 
-    print arg_v
-
+    if len(arg_v) < 2:
+        return {"error" : "No command specified"}
+    
     command = arg_v[1]
 
     if not command in COMMAND_LIST:
         return {"error" : "I don't understand the command " + command}
 
-
+    arg = {}
     if command == "mirror":
+    # command        URL                 VERSION SECTIONS               PATH
+    # mirror http://ftp.debian.org/debian/ sid main contrib --dest-path /tmp
+
+        #COMMAND
+        arg["command"] = "mirror"
+        if len(arg_v) < 3:
+            return {"error" : "URL missing"}
+
+        #URL
         url = arg_v[2]
         if not validate_url(url):
             return {"error" : "I don't understand the mirror url " + url}
 
+        arg["url"] = url 
+
+        #VERSION
+        if len(arg_v) < 4:
+            return {"error" : "Version missing"}
+
         version = arg_v[3]
-        if not version in SOURCES_VERSION:
+        if not version in SOURCES_VERSIONS:
             return {"error" : "I don't understand the version " + version}
 
+        arg["version"] = version
+
+        #SECTIONS
         sections = []
         i = 4 # The current index of the arg_v
-        while arg_v[i] in SOURCES_SECTION:
-            sections += arg_v[i]
+        while i < len(arg_v) and arg_v[i] in SOURCES_SECTIONS:
+            sections.append(arg_v[i])
+            i += 1
+        #Here the i points to --dest-path if exist
 
         if not sections:
             return {"error" : "I don't detect any software section (ie main)"}
 
+        if arg_v[i] != "--dest-path" and not arg_v[i] in SOURCES_SECTIONS:
+            return {"error" : "I don't understand the section " + arg_v[i]}
+
+        arg["sections"] = sections
+        
+        #PATH
+        if "--dest-path" in arg_v:
+            idx = arg_v.index("--dest-path")
+            if len(arg_v) < idx+2:
+                return {"error" : "After --dest-path you must specify a path"}
+
+            dest_path = arg_v[idx+1]
+
+            if not os.path.isdir(dest_path):
+                return {"error" : "The specified path doesn't exist " + dest_path}
+        
+            arg["path"] = dest_path
 
     elif command == "initialize":
-
+        pass
     elif command == "update":
-
+        pass
     elif command == "start":
-
+        pass
     elif command == "stop":
-
+        pass
     elif command == "clean":
-        
+        pass    
 
-    
-
-
-    return None
+    return arg
 
 
 def validate_url(url):
     return True
 
 
-def mirror():
+def mirror(url, version, sections, path):
     pass
 
 
@@ -138,21 +172,30 @@ def clean():
 
 if __name__=='__main__':
 
-    arg = arg_parsing(argv)
+    arg = arg_parsing(sys.argv)
 
     if "error" in arg:
-        print_help()
+        if arg["error"] == "No command specified":
+            print_help()
+        else:    
+            print(arg["error"])
         exit()
 
+    print("Nice")
+    print(arg)
 
     if arg["command"] == "mirror":
-        mirror(arg["url"], arg["distro"], arg["section_list"], arg["path"])
+        if "path" in arg:
+            path = arg["path"]
+        else:
+            path = DEFAULT_MIRROR_PATH
+        mirror(arg["url"], arg["version"], arg["sections"], path)
 
     elif arg["command"] == "initialize":
         initialize()
 
     elif arg["command"] == "update":
-        update(arg["url"], arg["distro"], arg["section_list"])
+        update(arg["url"], arg["distro"], arg["sections"])
 
     elif arg["command"] == "start":
         start()

@@ -3,8 +3,9 @@
 
 import sys
 import shlex
-import subprocess
+import shutil
 import os.path
+import subprocess
 
 ##########################################################################
 #   This program is free software: you can redistribute it and/or modify #
@@ -47,12 +48,14 @@ MIRROR_PATH = "/tmp/apt-mirror" #TODO! change this
 MIRROR_LIST_PATH = "/etc/apt/mirror.list"
 MIRROR_LIST_TEMPLATE_PATH = "./mirror-template.list"
 
-ATS_WWW_PATH = "/var/www/apt-transfer"
-ATS_MIRROR_WWW_PATH = ATS_WWW_PATH + "/mirror"
+WWW_PATH = "/var/www/apt-transfer"
 
+SOURCES_LIST_PATH = "/etc/apt/sources.list"
 SOURCES_LIST_WWW_PATH = WWW_PATH + "/sources.list"
 PACKAGE_LIST_WWW_PATH = WWW_PATH + "/packages.list"
+HTACCESS_WWW_PATH = WWW_PATH + "/.htaccess"
 
+HTACCESS_DENY = "#deny all access\ndeny from all\n"
 
 def print_help():
     print("apt-transfer %s \n" % VERSION)
@@ -172,7 +175,7 @@ def validate_url(url):
 def mirror(arch, url, version, sections, path):
 
     # Generate the mirror.list for apt-mirror
-    mirror_template_file = open(MIRROR_TEMPLATE_PATH, "r") 
+    mirror_template_file = open(MIRROR_LIST_TEMPLATE_PATH, "r") 
     mirror_template = mirror_template_file.read()
     mirror_template_file.close()
 
@@ -197,13 +200,31 @@ def mirror(arch, url, version, sections, path):
     if not os.path.isdir(MIRROR_PATH):
         os.mkdir(MIRROR_PATH)
 
-    # Create symlink to www-server direcory
-    if not os.path.isfile(MIRROR_WWW_PATH):
-        os.symlink(MIRROR_PATH, MIRROR_WWW_PATH)
+    # Create apt-transfer direcotry in WWW
+    if not os.path.isdir(WWW_PATH):
+        os.mkdir(WWW_PATH)
 
     # Executing apt-mirror
     apt_mirror_cmd = shlex.split("apt-mirror")
+    apt_mirror = subprocess.Popen(apt_mirror_cmd)
+    apt_mirror.wait()
+
+    mirror_path = MIRROR_PATH + "/mirror"
+
+    # Mirror creates a dir structure and the real mirror is 2 levels inside
+    # Subdir 1 contains name of the server mirrored
+    subdir = os.listdir(mirror_path)[0]
+    mirror_path += "/" + subdir
+    # Subdir 1 contains the distro name, debian or ubuntu
+    distro = os.listdir(mirror_path)[0]
+    mirror_path += "/" + distro
     
+    # Create symlink to www-server direcory
+    mirror_www_path = WWW_PATH + "/" + distro
+    if not os.path.islink(mirror_www_path) and \
+       not os.path.isdir(mirror_www_path):
+        os.symlink(mirror_path, mirror_www_path)
+
 
 # Maybe this can be replaced by packages dependeces once a deb
 # of this program is generated.
@@ -219,7 +240,7 @@ def initialize():
 
 """ Starts serving the apt-transfer-server to the given path (must be accessible 
 " to the webserver """
-def start(web_path):
+def start():
     #List system packages to create the list
     dpkg_l_cmd = shlex.split("dpkg -l")
     dpkg_l = subprocess.Popen(dpkg_l_cmd, stdout=subprocess.PIPE)
@@ -232,11 +253,11 @@ def start(web_path):
             package_list.append(package_name)
 
     #Creates the folder visible to the webserver if not created before
-    if not os.path.isdir(web_path):
-        os.mkdir(web_path)
+    if not os.path.isdir(WWW_PATH):
+        os.mkdir(WWW_PATH)
 
     #Write the package list to a file
-    package_list_file = open(web_path + "/" + PACKAGE_LIST_FILENAME, "w")
+    package_list_file = open(PACKAGE_LIST_WWW_PATH, "w")
     for package in package_list:
         package_list_file.write(package)
         package_list_file.write("\n")
@@ -245,34 +266,35 @@ def start(web_path):
 
     # Writes sources.list that will be given to the client
     
-    # Check if the mirror is created
-    if os.path.isdir(MIRROR_PATH):
-        # We are the mirror, we will be in the sources.list given to the client
-        src_sources_list_file = MIRROR_PATH + "/" + SOURCES_LIST_FILENAME
-        create_mirror_sources_list(src_sources_list_file)
-    else:
+    # Check if the mirror is created sources list, if not give the system one.
+    if not os.path.isfile(SOURCES_LIST_WWW_PATH):
         # We are not a mirror, we will give our sources.list to the client
-        src_sources_list_file = "/etc/apt/sources.list"  
-  
-    os.copy(src_sources_list_file, web_path + "/" + SOURCES_LIST_FILENAME)
+        shutil.copy(SOURCES_LIST_PATH, SOURCES_LIST_WWW_PATH)
 
-""" Stops sharing the package.list and source.list by deleting them from the 
-" webserver accessible folder """
-def stop(web_path):
-    if os.path.isdir(web_path):
-        os.rmdir(web_path)
+    # Delete htaccess if exist that deny web access
+    if os.path.isfile(HTACCESS_WWW_PATH):
+        os.remove(HTACCESS_WWW_PATH)
+
+
+""" Stops sharing the package.list and source.list setting a htaccess file."""
+def stop():
+    htaccess = open(HTACCESS_WWW_PATH, "w")
+    htaccess.write(HTACCESS_DENY)
+    htaccess.close() 
 
 
 """ Clean all files and configurations of the program, also the mirror
 " if is created
 """
-def clean(web_path, mirror_path):
-    if os.path.isdir(web_path):
-        os.rmdir(web_path)
+def clean():
+    if os.path.isdir(WWW_PATH):
+        os.rmdir(WWW_PATH)
 
-    if os.path.isdir(mirror_path):
-        os.rmdir(mirror_path)
+    if os.path.isdir(MIRROR_PATH):
+        os.rmdir(MIRROR_PATH)
 
+    if os.path.islink(MIRROR_WWW_PATH):
+        os.remove(MIRROR_WWW_PATH)
 
 if __name__=='__main__':
 
@@ -300,7 +322,7 @@ if __name__=='__main__':
         update(arg["url"], arg["distro"], arg["sections"])
 
     elif arg["command"] == "start":
-        start("/var/www/ats")
+        start()
 
     elif arg["command"] == "stop":
         stop()

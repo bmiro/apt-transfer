@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
 
+import re
 import sys
 import shlex
 import shutil
@@ -240,12 +241,11 @@ def mirror(arch, url, version, sections):
 # Maybe this can be replaced by packages dependeces once a deb
 # of this program is generated.
 def install_needed_dependeces():
-    pass
+    apt_cmd = shlex.split("apt-get install -y apache2 apt-mirror")
+    apt = subprocess.Popen(apt_cmd)
+    apt.wait()
 
 
-def initialize():
-    pass
-    
 """ Returns the ip of the given interface or false if any problem """ 
 def check_network_interface(interface):
     ifconfig_cmd = shlex.split("ifconfig " + interface)
@@ -261,6 +261,26 @@ def check_network_interface(interface):
     #TODO i'm here test this function
 
 
+""" Generate a sources.list file pointing to the server_address for the
+" distro and sections that will be found in mirror_path
+" @return: the contents of the sources.list file
+""" 
+def generate_sources_list(server_address, mirror_path):
+
+    distro = os.listdir(mirror_path)[0]
+    
+    sections = ""
+    for section in os.listdir(mirror_path + "/" + distro + "/pool"):
+        sections += section + " "
+
+    version = os.listdir(mirror_path + "/" + distro + "/dists")[0]
+
+    sources_list = ""
+    sources_list += "deb http://" + server_address + "/"
+    sources_list += distro + " " + version + " " + sections
+    
+    return sources_list
+
 
 """ Starts serving the apt-transfer-server to the given path (must be accessible 
 " to the webserver """
@@ -269,8 +289,8 @@ def start(interface):
     interface_address = check_network_interface(interface)    
     if not interface_address:
         print("Network intarface %s doesn't exist or is not ready to use." \
-              % (interface)}
-        return
+              % (interface))
+        return None
 
     #List system packages to create the list
     dpkg_l_cmd = shlex.split("dpkg -l")
@@ -299,11 +319,12 @@ def start(interface):
     
     # Check if the mirror is created sources list, if not give the system one.
     if os.path.isdir(MIRROR_WWW_PATH):
-        sources_list = open(SOURCES_LIST_WWW_PATH, "w")
-        sources_list.write("hola nene\n")
-        sources_list.close()
+        sources_list = generate_sources_list(interface_address, MIRROR_WWW_PATH)
+        sources_list_file = open(SOURCES_LIST_WWW_PATH, "w")
+        sources_list_file.write(sources_list)
+        sources_list_file.close()
     else:
-        # We are not a mirror, we will give our sources.list to the client
+        # We are not a mirror so we will give our sources.list to the client
         shutil.copy(SOURCES_LIST_PATH, SOURCES_LIST_WWW_PATH)
 
     # Delete htaccess if exist that deny web access

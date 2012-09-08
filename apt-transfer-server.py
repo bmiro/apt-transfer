@@ -40,7 +40,11 @@ SOURCES_SECTIONS=["main", "contrib", "non-free",          # Debian
 
 COMMAND_LIST = ["mirror", "initialize", "update", "start", "stop", "clean"]
 
-DEFAULT_MIRROR_PATH="/var/www/apt-mirror"
+# TODO a nicer way to configure, maybe conffile
+MIRROR_PATH="/var/www/apt-mirror"
+WEB_PATH="/var/www/apt-transfer"
+SOURCES_LIST_FILENAME="sources.list"
+PACKAGE_LIST_FILENAME="packages.list"
 
 
 def print_help():
@@ -153,21 +157,57 @@ def mirror(url, version, sections, path):
 def install_needed_dependeces():
     pass
 
+
 def initialize():
     pass
+    
 
 
-def start():
-    #List system packages
+
+""" Starts serving the apt-transfer-server to the given path (must be accessible 
+" to the webserver """
+def start(web_path):
+    #List system packages to create the list
     dpkg_l_cmd = shlex.split("dpkg -l")
     dpkg_l = subprocess.Popen(dpkg_l_cmd, stdout=subprocess.PIPE)
+    raw_package_list = dpkg_l.stdout.read()    
+   
+    package_list = []
+    for package_line in raw_package_list.split("\n"):
+        if package_line[0:2] == "ii": # Means that is a installed package 
+            package_name = package_line.split(" ")[2]
+            package_list.append(package_name)
 
-    package_list = dpkg_l.stdout.read()
+    #Creates the folder visible to the webserver if not created before
+    if not os.path.isdir(web_path)
+        os.mkdir(web_path)
 
-    print package_list
+    #Write the package list to a file
+    package_list_file = open(web_path + "/" + PACKAGE_LIST_FILENAME, "w")
+    for package in package_list:
+        package_list_file.write(package)
+        package_list_file.write("\n")
 
-def stop():
-    pass
+    package_list_file.close()
+
+    # Writes sources.list that will be given to the client
+    
+    # Check if the mirror is created
+    if os.path.isdir(MIRROR_PATH):
+        # We are the mirror, we will be in the sources.list given to the client
+        # The sources.list file will be created once the mirror is done
+        src_sources_list_file = MIRROR_PATH + "/" + SOURCES_LIST_FILENAME
+    else:
+        # We are not a mirror, we will give our sources.list to the client
+        src_sources_list_file = "/etc/apt/sources.list"  
+  
+    os.copy(src_sources_list_file, web_path + "/" + SOURCES_LIST_FILENAME)
+
+""" Stops sharing the package.list and source.list by deleting them from the 
+" webserver accessible folder """
+def stop(web_path):
+    if os.path.isdir(web_path)
+        os.rmdir(web_path)
 
 
 def clean():
@@ -200,7 +240,7 @@ if __name__=='__main__':
         update(arg["url"], arg["distro"], arg["sections"])
 
     elif arg["command"] == "start":
-        start()
+        start("/var/www/ats")
 
     elif arg["command"] == "stop":
         stop()

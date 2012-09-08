@@ -43,11 +43,15 @@ SOURCES_ARCHES=["amd64", "armel", "i386", "ia64", "kfreebsd-amd64", "kfreebsd-i3
 COMMAND_LIST = ["mirror", "initialize", "update", "start", "stop", "clean"]
 
 # TODO a nicer way to configure, maybe conffile
-MIRROR_PATH="/var/www/apt-mirror"
-WEB_PATH="/var/www/apt-transfer"
-MIRROR_TEMPLATE_PATH="./mirror-template.list"
-SOURCES_LIST_FILENAME="sources.list"
-PACKAGE_LIST_FILENAME="packages.list"
+MIRROR_PATH = "/tmp/apt-mirror" #TODO! change this
+MIRROR_LIST_PATH = "/etc/apt/mirror.list"
+MIRROR_LIST_TEMPLATE_PATH = "./mirror-template.list"
+
+ATS_WWW_PATH = "/var/www/apt-transfer"
+ATS_MIRROR_WWW_PATH = ATS_WWW_PATH + "/mirror"
+
+SOURCES_LIST_WWW_PATH = WWW_PATH + "/sources.list"
+PACKAGE_LIST_WWW_PATH = WWW_PATH + "/packages.list"
 
 
 def print_help():
@@ -166,11 +170,6 @@ def validate_url(url):
 " It may need many space
 """
 def mirror(arch, url, version, sections, path):
-    #i386 is the default and is ignored in mirror.list   
-    if arch == "i386": 
-        arch = "" 
-    else:
-        arch = "-" + arch
 
     # Generate the mirror.list for apt-mirror
     mirror_template_file = open(MIRROR_TEMPLATE_PATH, "r") 
@@ -186,13 +185,25 @@ def mirror(arch, url, version, sections, path):
         sects += section + " "
 
     mirror_template = mirror_template.replace("SECTIONS", sects)
+    mirror_template = mirror_template.replace("PATH", path)
+    
 
     # Copy mirror-list to apt-mirror conf folder
-    mirror_file = open("/tmp/mirror.list", "w")
+    mirror_file = open(MIRROR_LIST_PATH, "w")
     mirror_file.write(mirror_template)
     mirror_file.close()
 
+    # Create mirror directory
+    if not os.path.isdir(MIRROR_PATH):
+        os.mkdir(MIRROR_PATH)
 
+    # Create symlink to www-server direcory
+    if not os.path.isfile(MIRROR_WWW_PATH):
+        os.symlink(MIRROR_PATH, MIRROR_WWW_PATH)
+
+    # Executing apt-mirror
+    apt_mirror_cmd = shlex.split("apt-mirror")
+    
 
 # Maybe this can be replaced by packages dependeces once a deb
 # of this program is generated.

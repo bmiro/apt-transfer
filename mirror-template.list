@@ -1,6 +1,6 @@
 ############# config ##################
 #
-# set base_path    /var/spool/apt-mirror
+set base_path    PATH
 #
 # set mirror_path  $base_path/mirror
 # set skel_path    $base_path/skel
@@ -9,12 +9,12 @@
 # set defaultarch  <running host architecture>
 # set postmirror_script $var_path/postmirror.sh
 # set run_postmirror 0
-set nthreads     20
+set nthreads     4
 set _tilde 0
 #
 ############# end config ##############
 
-debARCH URL VERSION SECTIONS
+deb-ARCH URL VERSION SECTIONS
 
 clean URL
 

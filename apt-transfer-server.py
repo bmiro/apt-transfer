@@ -53,6 +53,7 @@ WWW_PATH = "/var/www/apt-transfer"
 SOURCES_LIST_PATH = "/etc/apt/sources.list"
 SOURCES_LIST_WWW_PATH = WWW_PATH + "/sources.list"
 PACKAGE_LIST_WWW_PATH = WWW_PATH + "/packages.list"
+MIRROR_WWW_PATH = WWW_PATH + "/apt-mirror"
 HTACCESS_WWW_PATH = WWW_PATH + "/.htaccess"
 
 HTACCESS_DENY = "#deny all access\ndeny from all\n"
@@ -99,9 +100,6 @@ def arg_parsing(arg_v):
     # command ARCH        URL                 VERSION SECTIONS    (optional) PATH
     # mirror i386 http://ftp.debian.org/debian/ sid main contrib --dest-path /tmp
     if command == "mirror":
-
-        #COMMAND
-        arg["command"] = "mirror"
 
         #ARCH
         idx = 2
@@ -162,9 +160,18 @@ def arg_parsing(arg_v):
         
             arg["path"] = dest_path
 
+    if command == "start":
+        #Interface
+        idx = 2
+        if len(arg_v) < idx+1:
+            return {"error" : "You need to specify server's network interface."}
+        
+        arg["interface"] = arg_v[idx] #2
+        
     return arg
 
 
+""" How to see if si a valid repo url? so hard..."""
 def validate_url(url):
     return True
 
@@ -172,7 +179,7 @@ def validate_url(url):
 """ creates a mirror of the given repository to the given path 
 " It may need many space
 """
-def mirror(arch, url, version, sections, path):
+def mirror(arch, url, version, sections):
 
     # Generate the mirror.list for apt-mirror
     mirror_template_file = open(MIRROR_LIST_TEMPLATE_PATH, "r") 
@@ -188,7 +195,7 @@ def mirror(arch, url, version, sections, path):
         sects += section + " "
 
     mirror_template = mirror_template.replace("SECTIONS", sects)
-    mirror_template = mirror_template.replace("PATH", path)
+    mirror_template = mirror_template.replace("PATH", MIRROR_PATH)
     
 
     # Copy mirror-list to apt-mirror conf folder
@@ -219,8 +226,12 @@ def mirror(arch, url, version, sections, path):
     distro = os.listdir(mirror_path)[0]
     mirror_path += "/" + distro
     
+    # Create mirror directory in www-server
+    if not os.path.isdir(MIRROR_WWW_PATH):
+        os.mkdir(MIRROR_WWW_PATH)
+
     # Create symlink to www-server direcory
-    mirror_www_path = WWW_PATH + "/" + distro
+    mirror_www_path = MIRROR_WWW_PATH + "/" + distro
     if not os.path.islink(mirror_www_path) and \
        not os.path.isdir(mirror_www_path):
         os.symlink(mirror_path, mirror_www_path)
@@ -235,12 +246,32 @@ def install_needed_dependeces():
 def initialize():
     pass
     
+""" Returns the ip of the given interface or false if any problem """ 
+def check_network_interface(interface):
+    ifconfig_cmd = shlex.split("ifconfig " + interface)
+    ifconfig_exec = subprocess.Popen(ifconfig_cmd, stdout=subprocess.PIPE)
+    ifconfig = ifconfig_exec.stdout.read()
+
+    addr_search = re.search(r"inet addr:([0-9.]+)\s+Bcast", ifconfig)
+    if addr_search:
+        return addr_search.group(1)
+    else:
+        return False
+
+    #TODO i'm here test this function
 
 
 
 """ Starts serving the apt-transfer-server to the given path (must be accessible 
 " to the webserver """
-def start():
+def start(interface):
+
+    interface_address = check_network_interface(interface)    
+    if not interface_address:
+        print("Network intarface %s doesn't exist or is not ready to use." \
+              % (interface)}
+        return
+
     #List system packages to create the list
     dpkg_l_cmd = shlex.split("dpkg -l")
     dpkg_l = subprocess.Popen(dpkg_l_cmd, stdout=subprocess.PIPE)
@@ -267,7 +298,11 @@ def start():
     # Writes sources.list that will be given to the client
     
     # Check if the mirror is created sources list, if not give the system one.
-    if not os.path.isfile(SOURCES_LIST_WWW_PATH):
+    if os.path.isdir(MIRROR_WWW_PATH):
+        sources_list = open(SOURCES_LIST_WWW_PATH, "w")
+        sources_list.write("hola nene\n")
+        sources_list.close()
+    else:
         # We are not a mirror, we will give our sources.list to the client
         shutil.copy(SOURCES_LIST_PATH, SOURCES_LIST_WWW_PATH)
 
@@ -288,13 +323,13 @@ def stop():
 """
 def clean():
     if os.path.isdir(WWW_PATH):
-        os.rmdir(WWW_PATH)
+        shutil.rmtree(WWW_PATH)
 
     if os.path.isdir(MIRROR_PATH):
-        os.rmdir(MIRROR_PATH)
+        shutil.rmtree(MIRROR_PATH)
 
     if os.path.islink(MIRROR_WWW_PATH):
-        os.remove(MIRROR_WWW_PATH)
+        shutil.rmtree(MIRROR_WWW_PATH)
 
 if __name__=='__main__':
 
@@ -309,11 +344,7 @@ if __name__=='__main__':
         exit()
 
     if arg["command"] == "mirror":
-        if "path" in arg:
-            path = arg["path"]
-        else:
-            path = MIRROR_PATH
-        mirror(arg["arch"], arg["url"], arg["version"], arg["sections"], path)
+        mirror(arg["arch"], arg["url"], arg["version"], arg["sections"])
 
     elif arg["command"] == "initialize":
         initialize()
@@ -322,7 +353,7 @@ if __name__=='__main__':
         update(arg["url"], arg["distro"], arg["sections"])
 
     elif arg["command"] == "start":
-        start()
+        start(arg["interface"])
 
     elif arg["command"] == "stop":
         stop()

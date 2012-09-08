@@ -22,7 +22,6 @@ import os.path
 ##########################################################################
 
 
-
 VERSION="pre-alpha"
 
 SOURCES_VERSIONS=[# Debian
@@ -38,11 +37,15 @@ SOURCES_VERSIONS=[# Debian
 SOURCES_SECTIONS=["main", "contrib", "non-free",          # Debian
                   "universe", "multiverse", "restricted"] # Ubuntu specific
 
+SOURCES_ARCHES=["amd64", "armel", "i386", "ia64", "kfreebsd-amd64", "kfreebsd-i386", \
+"mips", "mipsel", "powerpc", "s390", "sparc"]
+
 COMMAND_LIST = ["mirror", "initialize", "update", "start", "stop", "clean"]
 
 # TODO a nicer way to configure, maybe conffile
 MIRROR_PATH="/var/www/apt-mirror"
 WEB_PATH="/var/www/apt-transfer"
+MIRROR_TEMPLATE_PATH="./mirror-template.list"
 SOURCES_LIST_FILENAME="sources.list"
 PACKAGE_LIST_FILENAME="packages.list"
 
@@ -86,45 +89,56 @@ def arg_parsing(arg_v):
     arg["command"] = command
 
     # Mirror command has some special handling:
-    # command        URL                 VERSION SECTIONS    (optional) PATH
-    # mirror http://ftp.debian.org/debian/ sid main contrib --dest-path /tmp
+    # command ARCH        URL                 VERSION SECTIONS    (optional) PATH
+    # mirror i386 http://ftp.debian.org/debian/ sid main contrib --dest-path /tmp
     if command == "mirror":
 
         #COMMAND
         arg["command"] = "mirror"
-        if len(arg_v) < 3:
-            return {"error" : "URL missing"}
 
+        #ARCH
+        idx = 2
+        if len(arg_v) < idx+1:
+            return {"error" : "Architecture missing"}
+        
+        arch = arg_v[idx] #2
+        if not arch in SOURCES_ARCHES:
+            return {"error" : "The architecture %s is not recognized." % (arch)}
+        
+        arg["arch"] = arch
+        idx +=1
+        
         #URL
-        url = arg_v[2]
+        url = arg_v[idx] #3
         if not validate_url(url):
             return {"error" : "I don't understand the mirror url " + url}
 
-        arg["url"] = url 
+        arg["url"] = url
+        idx += 1 
 
         #VERSION
-        if len(arg_v) < 4:
+        if len(arg_v) < idx+1:
             return {"error" : "Version missing"}
 
-        version = arg_v[3]
+        version = arg_v[idx] #4
         if not version in SOURCES_VERSIONS:
             return {"error" : "I don't understand the version " + version}
 
         arg["version"] = version
+        idx += 1
 
         #SECTIONS
         sections = []
-        i = 4 # The current index of the arg_v
-        while i < len(arg_v) and arg_v[i] in SOURCES_SECTIONS:
-            sections.append(arg_v[i])
-            i += 1
+        while idx < len(arg_v) and arg_v[idx] in SOURCES_SECTIONS:
+            sections.append(arg_v[idx])
+            idx += 1
         #Here the i points to --dest-path if exist
 
         if not sections:
             return {"error" : "I don't detect any software section (ie main)"}
 
-        if arg_v[i-1] != "--dest-path" and not arg_v[i-1] in SOURCES_SECTIONS:
-            return {"error" : "I don't understand the section " + arg_v[i]}
+        if arg_v[idx-1] != "--dest-path" and not arg_v[idx-1] in SOURCES_SECTIONS:
+            return {"error" : "I don't understand the section " + arg_v[idx]}
 
         arg["sections"] = sections
         
@@ -151,8 +165,33 @@ def validate_url(url):
 """ creates a mirror of the given repository to the given path 
 " It may need many space
 """
-def mirror(url, version, sections, path):
-    pass
+def mirror(arch, url, version, sections, path):
+    #i386 is the default and is ignored in mirror.list   
+    if arch == "i386": 
+        arch = "" 
+    else:
+        arch = "-" + arch
+
+    # Generate the mirror.list for apt-mirror
+    mirror_template_file = open(MIRROR_TEMPLATE_PATH, "r") 
+    mirror_template = mirror_template_file.read()
+    mirror_template_file.close()
+
+    mirror_template = mirror_template.replace("ARCH", arch)
+    mirror_template = mirror_template.replace("URL", url)
+    mirror_template = mirror_template.replace("VERSION", version)
+
+    sects = ""
+    for section in sections:
+        sects += section + " "
+
+    mirror_template = mirror_template.replace("SECTIONS", sects)
+
+    # Copy mirror-list to apt-mirror conf folder
+    mirror_file = open("/tmp/mirror.list", "w")
+    mirror_file.write(mirror_template)
+    mirror_file.close()
+
 
 
 # Maybe this can be replaced by packages dependeces once a deb
@@ -182,7 +221,7 @@ def start(web_path):
             package_list.append(package_name)
 
     #Creates the folder visible to the webserver if not created before
-    if not os.path.isdir(web_path)
+    if not os.path.isdir(web_path):
         os.mkdir(web_path)
 
     #Write the package list to a file
@@ -209,7 +248,7 @@ def start(web_path):
 """ Stops sharing the package.list and source.list by deleting them from the 
 " webserver accessible folder """
 def stop(web_path):
-    if os.path.isdir(web_path)
+    if os.path.isdir(web_path):
         os.rmdir(web_path)
 
 
@@ -217,10 +256,10 @@ def stop(web_path):
 " if is created
 """
 def clean(web_path, mirror_path):
-    if os.path.isdir(web_path)
+    if os.path.isdir(web_path):
         os.rmdir(web_path)
 
-    if os.path.isdir(mirror_path)
+    if os.path.isdir(mirror_path):
         os.rmdir(mirror_path)
 
 
@@ -240,8 +279,8 @@ if __name__=='__main__':
         if "path" in arg:
             path = arg["path"]
         else:
-            path = DEFAULT_MIRROR_PATH
-        mirror(arg["url"], arg["version"], arg["sections"], path)
+            path = MIRROR_PATH
+        mirror(arg["arch"], arg["url"], arg["version"], arg["sections"], path)
 
     elif arg["command"] == "initialize":
         initialize()

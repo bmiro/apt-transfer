@@ -148,6 +148,9 @@ def validate_url(url):
     return True
 
 
+""" creates a mirror of the given repository to the given path 
+" It may need many space
+"""
 def mirror(url, version, sections, path):
     pass
 
@@ -195,8 +198,8 @@ def start(web_path):
     # Check if the mirror is created
     if os.path.isdir(MIRROR_PATH):
         # We are the mirror, we will be in the sources.list given to the client
-        # The sources.list file will be created once the mirror is done
         src_sources_list_file = MIRROR_PATH + "/" + SOURCES_LIST_FILENAME
+        create_mirror_sources_list(src_sources_list_file)
     else:
         # We are not a mirror, we will give our sources.list to the client
         src_sources_list_file = "/etc/apt/sources.list"  
@@ -210,8 +213,15 @@ def stop(web_path):
         os.rmdir(web_path)
 
 
-def clean():
-    pass
+""" Clean all files and configurations of the program, also the mirror
+" if is created
+"""
+def clean(web_path, mirror_path):
+    if os.path.isdir(web_path)
+        os.rmdir(web_path)
+
+    if os.path.isdir(mirror_path)
+        os.rmdir(mirror_path)
 
 
 if __name__=='__main__':

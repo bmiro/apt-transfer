@@ -29,9 +29,9 @@ apt-transfer-client depends on:
 
 Also if you want to use the gui you'll need pyqt4
 
-[1] CloneZilla    http://clonezilla.org/
-[2] apt-cache-ng  https://www.unix-ag.uni-kl.de/~bloch/acng/
-[3] apt-mirror    http://apt-mirror.sourceforge.net/
+[1] CloneZilla    http://clonezilla.org/ 
+[2] apt-cache-ng  https://www.unix-ag.uni-kl.de/~bloch/acng/ 
+[3] apt-mirror    http://apt-mirror.sourceforge.net/ 
 
 
 bartomeumiro at gmail dot com, August 2012, Kathmandu - Nepal

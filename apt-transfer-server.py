@@ -8,6 +8,7 @@ import signal
 import shutil
 import os.path
 import subprocess
+import http.server
 
 ##########################################################################
 #   This program is free software: you can redistribute it and/or modify #
@@ -200,7 +201,7 @@ def mirror(arch, url, version, sections):
 
     # Generate the mirror.list for apt-mirror
     mirror_template_file = open(MIRROR_LIST_TEMPLATE_PATH, "r") 
-    mirror_template = mirror_template_file.read()
+    mirror_template = mirror_template_file.read().decode()
     mirror_template_file.close()
 
     mirror_template = mirror_template.replace("ARCH", arch)
@@ -266,7 +267,7 @@ def install_needed_dependeces():
 def check_network_interface(interface):
     ifconfig_cmd = shlex.split("ifconfig " + interface)
     ifconfig_exec = subprocess.Popen(ifconfig_cmd, stdout=subprocess.PIPE)
-    ifconfig = ifconfig_exec.stdout.read()
+    ifconfig = ifconfig_exec.stdout.read().decode()
 
     addr_search = re.search(r"inet addr:([0-9.]+)\s+Bcast", ifconfig)
     if addr_search:
@@ -311,7 +312,7 @@ def start(interface):
     #List system packages to create the list
     dpkg_l_cmd = shlex.split("dpkg -l")
     dpkg_l = subprocess.Popen(dpkg_l_cmd, stdout=subprocess.PIPE)
-    raw_package_list = dpkg_l.stdout.read()    
+    raw_package_list = dpkg_l.stdout.read().decode()    
    
     package_list = []
     for package_line in raw_package_list.split("\n"):
@@ -348,14 +349,14 @@ def start(interface):
 #    if os.path.isfile(HTACCESS_WWW_PATH):
 #        os.remove(HTACCESS_WWW_PATH)
 
-
     start_httpd_server(interface_address)
 
 
 
-def start_httpd_server(intrerface_address)
+def start_httpd_server(interface_address):
+    os.chdir(WWW_PATH) # Change current directory to start webserver
     server_address = (interface_address, WWW_PORT)
-    httpd = server_class(server_address, BaseHTTPServer.BaseHTTPRequestHandler)
+    httpd = http.server.HTTPServer(server_address, http.server.BaseHTTPRequestHandler)
     global HTTPD_ACTIVE
     HTTPD_ACTIVE = True
     while HTTPD_ACTIVE:

@@ -22,7 +22,7 @@ Debian-based distribution.
 
 
 apt-transfer-server depends on:
-    apt python3 apache(or any webserver in /var/www) apt-mirror
+    apt python3 apt-mirror
 
 apt-transfer-client depends on:
     apt python3

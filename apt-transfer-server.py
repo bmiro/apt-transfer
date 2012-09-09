@@ -4,6 +4,7 @@
 import re
 import sys
 import shlex
+import signal
 import shutil
 import os.path
 import subprocess
@@ -51,6 +52,8 @@ MIRROR_LIST_TEMPLATE_PATH = "./mirror-template.list"
 
 WWW_PATH = "/var/www/apt-transfer"
 
+WWW_PORT = "8000"
+
 SOURCES_LIST_PATH = "/etc/apt/sources.list"
 SOURCES_LIST_WWW_PATH = WWW_PATH + "/sources.list"
 PACKAGE_LIST_WWW_PATH = WWW_PATH + "/packages.list"
@@ -58,6 +61,9 @@ MIRROR_WWW_PATH = WWW_PATH + "/apt-mirror"
 HTACCESS_WWW_PATH = WWW_PATH + "/.htaccess"
 
 HTACCESS_DENY = "#deny all access\ndeny from all\n"
+
+# Variable modified by start, stop and once a singal is catch
+HTTPD_ACTIVE = False
 
 def print_help():
     print("apt-transfer %s \n" % VERSION)
@@ -78,6 +84,16 @@ at the source with\n\t\t\tthe same sintax as sources.list to the given path.")
 
     print("\nExamles:")
     #TODO put examples of each invocation
+
+
+""" Catch sigint and stops httpd server """
+def sigint_handler(signal, frame):
+    global HTTPD_ACTIVE
+    if HTTPD_ACTIVE:
+        HTTPD_ACTIVE = False
+    else:
+        # If we are not running http server simply quit
+        exit()
 
 
 """ Argument parsing.
@@ -327,10 +343,23 @@ def start(interface):
         # We are not a mirror so we will give our sources.list to the client
         shutil.copy(SOURCES_LIST_PATH, SOURCES_LIST_WWW_PATH)
 
-    # Delete htaccess if exist that deny web access
-    if os.path.isfile(HTACCESS_WWW_PATH):
-        os.remove(HTACCESS_WWW_PATH)
+# If using Apache webserver
+#    # Delete htaccess if exist that deny web access
+#    if os.path.isfile(HTACCESS_WWW_PATH):
+#        os.remove(HTACCESS_WWW_PATH)
 
+
+    start_httpd_server(interface_address)
+
+
+
+def start_httpd_server(intrerface_address)
+    server_address = (interface_address, WWW_PORT)
+    httpd = server_class(server_address, BaseHTTPServer.BaseHTTPRequestHandler)
+    global HTTPD_ACTIVE
+    HTTPD_ACTIVE = True
+    while HTTPD_ACTIVE:
+        httpd.handle_request()
 
 """ Stops sharing the package.list and source.list setting a htaccess file."""
 def stop():
@@ -356,6 +385,8 @@ if __name__=='__main__':
 
     arg = arg_parsing(sys.argv)
 
+    signal.signal(signal.SIGINT, sigint_handler)
+    
     if "error" in arg:
         if arg["error"] == "No command specified":
             print_help()
